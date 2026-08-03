@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Only Fandom - App</title>
+    <!-- Tesseract.js Library for Optical Character Recognition (Card Scanning) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         /* Base Variables for Light Theme */
         :root {
@@ -202,10 +204,15 @@
         <img id="lightbox-img" src="" alt="Full Screen">
     </div>
 
+    <!-- Hidden Canvas for Processing Frames -->
+    <canvas id="ocr-canvas" style="display: none;"></canvas>
+
     <script>
         let allProfiles = [];
         let isPremium = false; 
         let videoStream = null;
+        let ocrInterval = null;
+        let isScanning = false;
 
         // --- Theme Toggle Logic ---
         const themeBtn = document.getElementById('themeToggle');
@@ -224,7 +231,6 @@
         }
 
         function closeLightbox(event) {
-            // Close if clicking the background or the close button
             if (event.target.id === 'imageLightbox' || event.target.className === 'close-lightbox') {
                 document.getElementById('imageLightbox').style.display = 'none';
                 document.getElementById('lightbox-img').src = '';
@@ -235,7 +241,7 @@
         function openModal() {
             if (isPremium) return; 
             document.getElementById('paymentModal').style.display = 'flex';
-            switchMethod('manual'); // Default to manual when opening
+            switchMethod('manual');
             
             document.getElementById('cardError').style.display = 'none';
             document.getElementById('cvvError').style.display = 'none';
@@ -277,15 +283,13 @@
                 });
                 
                 videoElement.srcObject = videoStream;
-                statusText.innerText = "Align your card inside the frame. Scanning...";
+                statusText.innerText = "Align your card in frame. Reading card data...";
+                isScanning = true;
                 
-                // Simulate successful OCR Scan after 3 seconds
-                setTimeout(() => {
-                    if (videoStream && document.getElementById('scanner-area').style.display === 'block') {
-                        stopCamera();
-                        activateVIP("Card scanned successfully! VIP Features are now unlocked.");
-                    }
-                }, 3000);
+                // Start frame analysis once video starts playing
+                videoElement.onloadedmetadata = () => {
+                    startOCR(videoElement);
+                };
 
             } catch (error) {
                 console.error("Camera access error:", error);
@@ -294,16 +298,67 @@
                 } else {
                     statusText.innerText = "Camera not found or supported on this device.";
                 }
-                // Fallback to manual after 2 seconds
                 setTimeout(() => switchMethod('manual'), 2000);
             }
         }
 
         function stopCamera() {
+            isScanning = false;
+            if (ocrInterval) {
+                clearInterval(ocrInterval);
+                ocrInterval = null;
+            }
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
             }
+        }
+
+        // --- Real-time Card OCR Detection ---
+        function startOCR(videoElement) {
+            const canvas = document.getElementById("ocr-canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Capture frame every 1.5 seconds to run OCR without lagging UI
+            ocrInterval = setInterval(async () => {
+                if (!isScanning) return;
+
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    // Execute Tesseract OCR on captured frame
+                    const result = await Tesseract.recognize(canvas, 'eng');
+                    const text = result.data.text;
+                    console.log("Scanned Frame Text:", text);
+
+                    // RegEx patterns for credit card detection
+                    const cardNumberPattern = /\b(?:\d[ -]*?){13,19}\b/;
+                    const expiryPattern = /\b(0[1-9]|1[0-2])\/([0-9]{2}|[0-9]{4})\b/;
+
+                    const cardMatch = text.match(cardNumberPattern);
+                    const expiryMatch = text.match(expiryPattern);
+
+                    if (cardMatch) {
+                        const cleanCardNumber = cardMatch[0].replace(/[\s-]/g, '');
+                        
+                        // Populate form inputs automatically
+                        document.getElementById('cardNumber').value = cleanCardNumber;
+                        
+                        if (expiryMatch) {
+                            document.getElementById('cardExpiry').value = expiryMatch[0];
+                        }
+
+                        // Stop scanning, turn off camera, and switch user back to manual review
+                        stopCamera();
+                        switchMethod('manual');
+                        alert("Card details detected! Please verify the info and click Submit Payment.");
+                    }
+                } catch (ocrErr) {
+                    console.error("OCR process error:", ocrErr);
+                }
+            }, 1500);
         }
 
         function submitPayment() {
@@ -345,7 +400,7 @@
             vipBtn.innerHTML = '⭐ VIP Active';
             vipBtn.classList.add('active');
             
-            filterProfiles(); // Re-render thumbnails and data
+            filterProfiles();
             alert(successMessage);
         }
 
@@ -388,7 +443,6 @@
 
                 const thumbnailsHtml = profile.images_blurred.map((img, i) => {
                     if (isPremium) {
-                        // Use the CLEAR image for the popup, but thumbnail can just be a zoomed version
                         const clearImageVersion = profile.images_clear[i] || img; 
                         return `
                             <div class="thumbnail-wrapper" onclick="openLightbox('${clearImageVersion}')">
