@@ -68,30 +68,59 @@
         }
         .profile-card { background: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; transition: background 0.3s; }
         
-        /* Slider Layout */
+        /* Main Slider Layout - Clear Images */
         .img-container { position: relative; width: 100%; height: 350px; overflow: hidden; background: #000; }
         .slider-track { display: flex; width: 100%; height: 100%; transition: transform 0.3s ease-in-out; }
         
-        /* Base image styling (No global blur anymore) */
         .slider-track img { 
             width: 100%; 
             height: 100%; 
             object-fit: contain; 
             flex-shrink: 0; 
-            cursor: pointer; 
-        }
-
-        /* Specific class just for blurred images */
-        .blurred-img {
-            filter: blur(15px); 
-            transform: scale(1.1); 
         }
         
         .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px 12px; cursor: pointer; z-index: 5; font-weight: bold; border-radius: 4px; }
         .prev-btn { left: 10px; }
         .next-btn { right: 10px; }
+        
+        /* Small Blurred Thumbnails Section */
+        .thumbnails-section { padding: 12px 15px 0 15px; }
+        .thumbnails-track { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+        .thumbnails-track::-webkit-scrollbar { display: none; }
+        
+        /* Wrapper to keep the blur effect contained cleanly inside the box */
+        .thumbnail-wrapper {
+            position: relative;
+            width: 60px; 
+            height: 60px; 
+            border-radius: 6px; 
+            border: 1px solid var(--input-border); 
+            background: #000;
+            flex-shrink: 0;
+            overflow: hidden;
+            cursor: pointer;
+        }
 
-        .blur-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; pointer-events: none; text-align: center; padding: 10px;}
+        .thumbnail-wrapper img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            filter: blur(6px); 
+            transform: scale(1.2); 
+            transition: 0.3s;
+        }
+
+        .thumbnail-lock {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-size: 16px;
+            pointer-events: none; /* Lets clicks pass through to the wrapper */
+        }
         
         .profile-info { padding: 15px; display: flex; flex-direction: column; gap: 6px; }
         .badge { background: var(--badge-bg); padding: 4px 8px; border-radius: 4px; font-size: 12px; width: fit-content; }
@@ -172,31 +201,36 @@
                 const card = document.createElement('div');
                 card.className = 'profile-card';
                 
-                // 1. Generate HTML for clear images (NO blur class)
+                // 1. Generate HTML for clear images inside the main slider
                 const clearSlidesHtml = profile.images_clear.map(img => 
-                    `<img src="${img}" alt="${profile.title} Clear" onclick="handleImageClick()">`
+                    `<img src="${img}" alt="${profile.title} Clear">`
                 ).join('');
 
-                // 2. Generate HTML for blurred images (WITH .blurred-img class)
-                const blurredSlidesHtml = profile.images_blurred.map(img => 
-                    `<img class="blurred-img" src="${img}" alt="${profile.title} Blurred" onclick="handleImageClick()">`
+                // 2. Generate HTML for blurred thumbnails in the small boxes below
+                const blurredThumbnailsHtml = profile.images_blurred.map(img => 
+                    `<div class="thumbnail-wrapper" onclick="handlePremiumClick()">
+                        <img src="${img}" alt="${profile.title} Locked">
+                        <div class="thumbnail-lock">🔒</div>
+                    </div>`
                 ).join('');
-
-                // Combine them into a single slider
-                const slidesHtml = clearSlidesHtml + blurredSlidesHtml;
-                const totalSlides = profile.images_clear.length + profile.images_blurred.length;
 
                 card.innerHTML = `
                     <div class="img-container">
                         <div class="slider-track" id="track-${index}">
-                            ${slidesHtml}
+                            ${clearSlidesHtml}
                         </div>
-                        ${totalSlides > 1 ? `
+                        ${profile.images_clear.length > 1 ? `
                             <button class="slider-btn prev-btn" onclick="moveSlide(${index}, -1)">&#10094;</button>
                             <button class="slider-btn next-btn" onclick="moveSlide(${index}, 1)">&#10095;</button>
                         ` : ''}
-                        <div class="blur-overlay">🔒 Tap to Unlock Premium</div>
                     </div>
+                    
+                    <div class="thumbnails-section">
+                        <div class="thumbnails-track">
+                            ${blurredThumbnailsHtml}
+                        </div>
+                    </div>
+
                     <div class="profile-info">
                         <h3>${profile.title}, ${profile.age}</h3>
                         <div class="badge">📍 ${profile.location}</div>
@@ -207,7 +241,7 @@
                 `;
                 container.appendChild(card);
                 card.dataset.slideIndex = 0;
-                card.dataset.maxSlide = totalSlides;
+                card.dataset.maxSlide = profile.images_clear.length;
             });
         }
 
@@ -224,7 +258,9 @@
             track.style.transform = `translateX(-${currentSlide * 100}%)`;
         };
 
-        function handleImageClick() {
+        // --- Premium Click Popup Logic ---
+        function handlePremiumClick() {
+            alert("Unlock Premium to view these photos!");
             window.location.href = 'index0.html';
         }
 
