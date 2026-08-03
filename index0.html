@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Only Fandom - VIP Unlocked</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; color: #333; }
+        header { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px auto; }
+        h1 { color: #2ecc71; margin: 0; }
+        
+        .unlock-btn { background: #2ecc71; color: #fff; padding: 10px 18px; border-radius: 20px; text-decoration: none; font-weight: bold; font-size: 14px; border: none; cursor: default; }
+
+        /* Filter layout */
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto 30px auto;
+        }
+        .filters input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Profile Layout */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .profile-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        
+        /* Slider Layout */
+        .img-container { position: relative; width: 100%; height: 260px; overflow: hidden; background: #000; }
+        .slider-track { display: flex; width: 100%; height: 100%; transition: transform 0.3s ease-in-out; }
+        .slider-track img { width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; }
+        
+        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px 12px; cursor: pointer; z-index: 5; font-weight: bold; border-radius: 4px; }
+        .prev-btn { left: 10px; }
+        .next-btn { right: 10px; }
+        
+        .profile-info { padding: 15px; display: flex; flex-direction: column; gap: 6px; }
+        .badge { background: #eef2f7; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: fit-content; }
+        .loading { text-align: center; font-size: 18px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Only Fandom (VIP)</h1>
+        <button class="unlock-btn">✔️ VIP Unlocked</button>
+    </header>
+
+    <div class="filters">
+        <input type="number" id="minAge" placeholder="Min Age">
+        <input type="number" id="maxAge" placeholder="Max Age">
+        <input type="number" id="minHeight" placeholder="Min Height">
+        <input type="number" id="maxHeight" placeholder="Max Height">
+        <input type="number" id="minPrice" placeholder="Min Price">
+        <input type="number" id="maxPrice" placeholder="Max Price">
+    </div>
+
+    <div id="profileContainer" class="profile-grid">
+        <div class="loading">Fetching VIP profiles...</div>
+    </div>
+
+    <script>
+        let allProfiles = [];
+        const isPremium = true; // Unlocked version flag
+
+        async function loadProfiles() {
+            try {
+                const response = await fetch('profiles.html');
+                const htmlText = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const scriptTag = doc.getElementById('profiles-data');
+                
+                if (scriptTag) {
+                    allProfiles = JSON.parse(scriptTag.textContent);
+                    renderProfiles(allProfiles);
+                }
+            } catch (error) {
+                console.error("Error fetching profiles:", error);
+                document.getElementById('profileContainer').innerHTML = '<p class="loading">Error loading data. Run via a local web server.</p>';
+            }
+        }
+
+        function renderProfiles(profiles) {
+            const container = document.getElementById('profileContainer');
+            container.innerHTML = '';
+
+            if (profiles.length === 0) {
+                container.innerHTML = '<p class="loading">No profiles match your filter options.</p>';
+                return;
+            }
+
+            profiles.forEach((profile, index) => {
+                const card = document.createElement('div');
+                card.className = 'profile-card';
+                
+                const images = profile.images_clear; // Render clear multi-images
+
+                let slidesHtml = images.map(img => `<img src="${img}" alt="${profile.title}">`).join('');
+
+                card.innerHTML = `
+                    <div class="img-container">
+                        <div class="slider-track" id="track-${index}">
+                            ${slidesHtml}
+                        </div>
+                        ${images.length > 1 ? `
+                            <button class="slider-btn prev-btn" onclick="moveSlide(${index}, -1)">&#10094;</button>
+                            <button class="slider-btn next-btn" onclick="moveSlide(${index}, 1)">&#10095;</button>
+                        ` : ''}
+                    </div>
+                    <div class="profile-info">
+                        <h3>${profile.title}, ${profile.age}</h3>
+                        <div class="badge">📍 ${profile.location}</div>
+                        <p><strong>Height:</strong> ${profile.height} cm | <strong>Price:</strong> $${profile.price}</p>
+                        <p>${profile.desc}</p>
+                        <p><strong>Phone:</strong> ${profile.phone}</p>
+                        <p><strong>Socials:</strong> IG: @${profile.instagram} | FB: ${profile.facebook}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+                card.dataset.slideIndex = 0;
+                card.dataset.maxSlide = images.length;
+            });
+        }
+
+        window.moveSlide = function(cardIndex, direction) {
+            const card = document.querySelectorAll('.profile-card')[cardIndex];
+            let currentSlide = parseInt(card.dataset.slideIndex);
+            const maxSlide = parseInt(card.dataset.maxSlide);
+
+            currentSlide = (currentSlide + direction + maxSlide) % maxSlide;
+            card.dataset.slideIndex = currentSlide;
+
+            const track = document.getElementById(`track-${cardIndex}`);
+            track.style.transform = `translateX(-${currentSlide * 100}%)`;
+        };
+
+        function filterProfiles() {
+            const minAge = parseInt(document.getElementById('minAge').value) || null;
+            const maxAge = parseInt(document.getElementById('maxAge').value) || null;
+            const minHeight = parseInt(document.getElementById('minHeight').value) || null;
+            const maxHeight = parseInt(document.getElementById('maxHeight').value) || null;
+            const minPrice = parseInt(document.getElementById('minPrice').value) || null;
+            const maxPrice = parseInt(document.getElementById('maxPrice').value) || null;
+
+            const filtered = allProfiles.filter(p => {
+                if (minAge !== null && p.age < minAge) return false;
+                if (maxAge !== null && p.age > maxAge) return false;
+                if (minHeight !== null && p.height < minHeight) return false;
+                if (maxHeight !== null && p.height > maxHeight) return false;
+                if (minPrice !== null && p.price < minPrice) return false;
+                if (maxPrice !== null && p.price > maxPrice) return false;
+                return true;
+            });
+
+            renderProfiles(filtered);
+        }
+
+        document.querySelectorAll('.filters input').forEach(input => {
+            input.addEventListener('input', filterProfiles);
+        });
+
+        loadProfiles();
+    </script>
+</body>
+</html>
