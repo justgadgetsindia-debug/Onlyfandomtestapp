@@ -68,12 +68,20 @@
         }
         .profile-card { background: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; transition: background 0.3s; }
         
-        /* Slider Layout - Updated for full image display */
+        /* Slider Layout */
         .img-container { position: relative; width: 100%; height: 350px; overflow: hidden; background: #000; }
         .slider-track { display: flex; width: 100%; height: 100%; transition: transform 0.3s ease-in-out; }
         
-        /* Changed object-fit from cover to contain to prevent cropping */
-        .slider-track img { width: 100%; height: 100%; object-fit: contain; flex-shrink: 0; cursor: pointer; }
+        /* ADDED CSS BLUR HERE */
+        .slider-track img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            flex-shrink: 0; 
+            cursor: pointer; 
+            filter: blur(15px); /* Forcefully blurs the image */
+            transform: scale(1.1); /* Scales up slightly to hide clear edges caused by the blur */
+        }
         
         .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px 12px; cursor: pointer; z-index: 5; font-weight: bold; border-radius: 4px; }
         .prev-btn { left: 10px; }
