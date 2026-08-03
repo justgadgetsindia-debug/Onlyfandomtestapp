@@ -1,1 +1,176 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Only Fandom - App</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; color: #333; }
+        header { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px auto; }
+        h1 { color: #e91e63; margin: 0; }
+        
+        .unlock-btn { background: linear-gradient(45deg, #f39c12, #e74c3c); color: #fff; padding: 10px 18px; border-radius: 20px; text-decoration: none; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
+
+        /* Filter layout */
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto 30px auto;
+        }
+        .filters input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Profile Layout */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .profile-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        
+        .img-container { position: relative; width: 100%; height: 260px; overflow: hidden; background: #000; cursor: pointer; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .blur-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; }
+        
+        .profile-info { padding: 15px; display: flex; flex-direction: column; gap: 6px; }
+        .badge { background: #eef2f7; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: fit-content; }
+        .protected-data { filter: blur(4px); user-select: none; }
+        .loading { text-align: center; font-size: 18px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Only Fandom</h1>
+        <button id="premiumStatusBtn" class="unlock-btn" onclick="window.location.href='index0.html'">⭐ Unlock Premium</button>
+    </header>
+
+    <!-- Requested Filter Layout -->
+    <div class="filters">
+        <input type="number" id="minAge" placeholder="Min Age">
+        <input type="number" id="maxAge" placeholder="Max Age">
+        <input type="number" id="minHeight" placeholder="Min Height">
+        <input type="number" id="maxHeight" placeholder="Max Height">
+        <input type="number" id="minPrice" placeholder="Min Price">
+        <input type="number" id="maxPrice" placeholder="Max Price">
+    </div>
+
+    <div id="profileContainer" class="profile-grid">
+        <div class="loading">Fetching profiles...</div>
+    </div>
+
+    <script>
+        let allProfiles = [];
+        const isPremium = localStorage.getItem('isPremiumUser') === 'true';
+
+        // Update UI based on premium status
+        if (isPremium) {
+            const btn = document.getElementById('premiumStatusBtn');
+            btn.innerText = '✔️ VIP Unlocked';
+            btn.style.background = '#2ecc71';
+            btn.onclick = null;
+        }
+
+        async function loadProfiles() {
+            try {
+                const response = await fetch('profiles.html');
+                const htmlText = await response.text();
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const scriptTag = doc.getElementById('profiles-data');
+                
+                if (scriptTag) {
+                    allProfiles = JSON.parse(scriptTag.textContent);
+                    renderProfiles(allProfiles);
+                }
+            } catch (error) {
+                console.error("Error fetching profiles:", error);
+                document.getElementById('profileContainer').innerHTML = '<p class="loading">Error loading data. Run via a web server.</p>';
+            }
+        }
+
+        function renderProfiles(profiles) {
+            const container = document.getElementById('profileContainer');
+            container.innerHTML = '';
+
+            if (profiles.length === 0) {
+                container.innerHTML = '<p class="loading">No profiles match your filter options.</p>';
+                return;
+            }
+
+            profiles.forEach((profile) => {
+                const card = document.createElement('div');
+                card.className = 'profile-card';
+                
+                // Load clear or blurred image based on subscription status
+                const imgSrc = isPremium ? profile.images_clear[0] : profile.images_blurred[0];
+
+                card.innerHTML = `
+                    <div class="img-container" onclick="handleImageClick()">
+                        <img src="${imgSrc}" alt="${profile.title}">
+                        ${!isPremium ? '<div class="blur-overlay">🔒 Tap to Unlock Clear Image</div>' : ''}
+                    </div>
+                    <div class="profile-info">
+                        <h3>${profile.title}, ${profile.age}</h3>
+                        <div class="badge">📍 ${profile.location}</div>
+                        <p><strong>Height:</strong> ${profile.height} cm | <strong>Price:</strong> $${profile.price}</p>
+                        <p>${profile.desc}</p>
+                        <p><strong>Phone:</strong> <span class="${!isPremium ? 'protected-data' : ''}">${isPremium ? profile.phone : '+88017XXXXXX'}</span></p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function handleImageClick() {
+            if (!isPremium) {
+                window.location.href = 'index0.html';
+            }
+        }
+
+        // Live Filtering Logic
+        function filterProfiles() {
+            const minAge = parseInt(document.getElementById('minAge').value) || null;
+            const maxAge = parseInt(document.getElementById('maxAge').value) || null;
+            const minHeight = parseInt(document.getElementById('minHeight').value) || null;
+            const maxHeight = parseInt(document.getElementById('maxHeight').value) || null;
+            const minPrice = parseInt(document.getElementById('minPrice').value) || null;
+            const maxPrice = parseInt(document.getElementById('maxPrice').value) || null;
+
+            const filtered = allProfiles.filter(p => {
+                if (minAge !== null && p.age < minAge) return false;
+                if (maxAge !== null && p.age > maxAge) return false;
+                if (minHeight !== null && p.height < minHeight) return false;
+                if (maxHeight !== null && p.height > maxHeight) return false;
+                if (minPrice !== null && p.price < minPrice) return false;
+                if (maxPrice !== null && p.price > maxPrice) return false;
+                return true;
+            });
+
+            renderProfiles(filtered);
+        }
+
+        document.querySelectorAll('.filters input').forEach(input => {
+            input.addEventListener('input', filterProfiles);
+        });
+
+        loadProfiles();
+    </script>
+</body>
+</html>
