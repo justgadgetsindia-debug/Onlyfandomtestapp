@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,9 +42,16 @@
         }
         .profile-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
         
-        .img-container { position: relative; width: 100%; height: 260px; overflow: hidden; background: #000; cursor: pointer; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .blur-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; }
+        /* Slider Layout */
+        .img-container { position: relative; width: 100%; height: 260px; overflow: hidden; background: #000; }
+        .slider-track { display: flex; width: 100%; height: 100%; transition: transform 0.3s ease-in-out; }
+        .slider-track img { width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
+        
+        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px 12px; cursor: pointer; z-index: 5; font-weight: bold; border-radius: 4px; }
+        .prev-btn { left: 10px; }
+        .next-btn { right: 10px; }
+
+        .blur-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; pointer-events: none; text-align: center; padding: 10px;}
         
         .profile-info { padding: 15px; display: flex; flex-direction: column; gap: 6px; }
         .badge { background: #eef2f7; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: fit-content; }
@@ -60,7 +66,6 @@
         <button id="premiumStatusBtn" class="unlock-btn" onclick="window.location.href='index0.html'">⭐ Unlock Premium</button>
     </header>
 
-    <!-- Requested Filter Layout -->
     <div class="filters">
         <input type="number" id="minAge" placeholder="Min Age">
         <input type="number" id="maxAge" placeholder="Max Age">
@@ -76,21 +81,12 @@
 
     <script>
         let allProfiles = [];
-        const isPremium = localStorage.getItem('isPremiumUser') === 'true';
-
-        // Update UI based on premium status
-        if (isPremium) {
-            const btn = document.getElementById('premiumStatusBtn');
-            btn.innerText = '✔️ VIP Unlocked';
-            btn.style.background = '#2ecc71';
-            btn.onclick = null;
-        }
+        const isPremium = false; // Standard page is always locked by default
 
         async function loadProfiles() {
             try {
                 const response = await fetch('profiles.html');
                 const htmlText = await response.text();
-                
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlText, 'text/html');
                 const scriptTag = doc.getElementById('profiles-data');
@@ -101,7 +97,7 @@
                 }
             } catch (error) {
                 console.error("Error fetching profiles:", error);
-                document.getElementById('profileContainer').innerHTML = '<p class="loading">Error loading data. Run via a web server.</p>';
+                document.getElementById('profileContainer').innerHTML = '<p class="loading">Error loading data. Run via a local web server.</p>';
             }
         }
 
@@ -114,37 +110,55 @@
                 return;
             }
 
-            profiles.forEach((profile) => {
+            profiles.forEach((profile, index) => {
                 const card = document.createElement('div');
                 card.className = 'profile-card';
                 
-                // Load clear or blurred image based on subscription status
-                const imgSrc = isPremium ? profile.images_clear[0] : profile.images_blurred[0];
+                const images = profile.images_blurred;
+
+                let slidesHtml = images.map(img => `<img src="${img}" alt="${profile.title}" onclick="handleImageClick()">`).join('');
 
                 card.innerHTML = `
-                    <div class="img-container" onclick="handleImageClick()">
-                        <img src="${imgSrc}" alt="${profile.title}">
-                        ${!isPremium ? '<div class="blur-overlay">🔒 Tap to Unlock Clear Image</div>' : ''}
+                    <div class="img-container">
+                        <div class="slider-track" id="track-${index}">
+                            ${slidesHtml}
+                        </div>
+                        ${images.length > 1 ? `
+                            <button class="slider-btn prev-btn" onclick="moveSlide(${index}, -1)">&#10094;</button>
+                            <button class="slider-btn next-btn" onclick="moveSlide(${index}, 1)">&#10095;</button>
+                        ` : ''}
+                        <div class="blur-overlay">🔒 Tap to Unlock Clear Images</div>
                     </div>
                     <div class="profile-info">
                         <h3>${profile.title}, ${profile.age}</h3>
                         <div class="badge">📍 ${profile.location}</div>
                         <p><strong>Height:</strong> ${profile.height} cm | <strong>Price:</strong> $${profile.price}</p>
                         <p>${profile.desc}</p>
-                        <p><strong>Phone:</strong> <span class="${!isPremium ? 'protected-data' : ''}">${isPremium ? profile.phone : '+88017XXXXXX'}</span></p>
+                        <p><strong>Phone:</strong> <span class="protected-data">+88017XXXXXX</span></p>
                     </div>
                 `;
                 container.appendChild(card);
+                card.dataset.slideIndex = 0;
+                card.dataset.maxSlide = images.length;
             });
         }
 
+        window.moveSlide = function(cardIndex, direction) {
+            const card = document.querySelectorAll('.profile-card')[cardIndex];
+            let currentSlide = parseInt(card.dataset.slideIndex);
+            const maxSlide = parseInt(card.dataset.maxSlide);
+
+            currentSlide = (currentSlide + direction + maxSlide) % maxSlide;
+            card.dataset.slideIndex = currentSlide;
+
+            const track = document.getElementById(`track-${cardIndex}`);
+            track.style.transform = `translateX(-${currentSlide * 100}%)`;
+        };
+
         function handleImageClick() {
-            if (!isPremium) {
-                window.location.href = 'index0.html';
-            }
+            window.location.href = 'index0.html';
         }
 
-        // Live Filtering Logic
         function filterProfiles() {
             const minAge = parseInt(document.getElementById('minAge').value) || null;
             const maxAge = parseInt(document.getElementById('maxAge').value) || null;
