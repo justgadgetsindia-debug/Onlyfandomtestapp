@@ -429,13 +429,12 @@
                 const card = document.createElement('div');
                 card.className = 'profile-card';
                 
-                // Hero slider uses clear photos when unlocked or blurred photos when locked
-                const slidesArray = isPremium ? profile.images_clear : profile.images_blurred;
-                const slidesHtml = slidesArray.map(img => 
-                    `<img src="${img}" alt="${profile.title}">`
+                // Hero slider STRICTLY contains CLEAR images only
+                const clearSlidesHtml = profile.images_clear.map(img => 
+                    `<img src="${img}" alt="${profile.title} Clear">`
                 ).join('');
 
-                // Thumbnails ALWAYS render blurred image and open exact blurred image in lightbox
+                // Thumbnails STRICTLY contain BLURRED images only
                 const thumbnailsHtml = profile.images_blurred.map((blurredImg) => {
                     if (isPremium) {
                         return `
@@ -456,9 +455,9 @@
                 card.innerHTML = `
                     <div class="img-container">
                         <div class="slider-track" id="track-${index}">
-                            ${slidesHtml}
+                            ${clearSlidesHtml}
                         </div>
-                        ${slidesArray.length > 1 ? `
+                        ${profile.images_clear.length > 1 ? `
                             <button class="slider-btn prev-btn" onclick="moveSlide(${index}, -1)">&#10094;</button>
                             <button class="slider-btn next-btn" onclick="moveSlide(${index}, 1)">&#10095;</button>
                         ` : ''}
@@ -480,7 +479,7 @@
                 `;
                 container.appendChild(card);
                 card.dataset.slideIndex = 0;
-                card.dataset.maxSlide = slidesArray.length;
+                card.dataset.maxSlide = profile.images_clear.length;
             });
         }
 
